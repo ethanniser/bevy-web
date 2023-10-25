@@ -1,55 +1,46 @@
-//! Shows how to render simple primitive shapes with a single color.
+//! Renders a 2D scene containing a single, moving sprite.
 
-use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
+use bevy::prelude::*;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
+        .add_systems(Update, sprite_movement)
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
+#[derive(Component)]
+enum Direction {
+    Up,
+    Down,
+}
+
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
-
-    // Circle
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(shape::Circle::new(50.).into()).into(),
-        material: materials.add(ColorMaterial::from(Color::PURPLE)),
-        transform: Transform::from_translation(Vec3::new(-150., 0., 0.)),
-        ..default()
-    });
-
-    // Rectangle
-    commands.spawn(SpriteBundle {
-        sprite: Sprite {
-            color: Color::rgb(0.25, 0.25, 0.75),
-            custom_size: Some(Vec2::new(50.0, 100.0)),
+    commands.spawn((
+        SpriteBundle {
+            texture: asset_server.load("icon.png"),
+            transform: Transform::from_xyz(100., 0., 0.),
             ..default()
         },
-        transform: Transform::from_translation(Vec3::new(-50., 0., 0.)),
-        ..default()
-    });
+        Direction::Up,
+    ));
+}
 
-    // Quad
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes
-            .add(shape::Quad::new(Vec2::new(50., 100.)).into())
-            .into(),
-        material: materials.add(ColorMaterial::from(Color::LIME_GREEN)),
-        transform: Transform::from_translation(Vec3::new(50., 0., 0.)),
-        ..default()
-    });
+/// The sprite is animated by changing its translation depending on the time that has passed since
+/// the last frame.
+fn sprite_movement(time: Res<Time>, mut sprite_position: Query<(&mut Direction, &mut Transform)>) {
+    for (mut logo, mut transform) in &mut sprite_position {
+        match *logo {
+            Direction::Up => transform.translation.y += 150. * time.delta_seconds(),
+            Direction::Down => transform.translation.y -= 150. * time.delta_seconds(),
+        }
 
-    // Hexagon
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(shape::RegularPolygon::new(50., 6).into()).into(),
-        material: materials.add(ColorMaterial::from(Color::TURQUOISE)),
-        transform: Transform::from_translation(Vec3::new(150., 0., 0.)),
-        ..default()
-    });
+        if transform.translation.y > 200. {
+            *logo = Direction::Down;
+        } else if transform.translation.y < -200. {
+            *logo = Direction::Up;
+        }
+    }
 }
