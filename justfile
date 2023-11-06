@@ -1,4 +1,4 @@
-set shell := ["powershell.exe", "-c"]
+# set shell := ["powershell.exe", "-c"]
 
 run-web:
     cargo run --target wasm32-unknown-unknown
