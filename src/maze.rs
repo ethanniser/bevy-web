@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-
+use std::iter::Iterator;
 #[derive(Debug, Clone)]
 struct Graph {
     nodes: Vec<HashSet<usize>>,
@@ -31,12 +31,33 @@ impl Graph {
         Self { nodes }
     }
 
-    fn generate_maze(&self) -> impl Iterator<target = > {}
+    fn generate_maze(&self) -> impl Iterator<Item = GeneratorState> {
+        todo!()
+    }
 }
 
 impl std::convert::AsRef<Vec<HashSet<usize>>> for Graph {
     fn as_ref(&self) -> &Vec<HashSet<usize>> {
         &self.nodes
+    }
+}
+
+struct MazeGenerator<'a> {
+    graph: &'a Graph,
+    visited: HashSet<usize>,
+    stack: Vec<usize>,
+}
+
+enum GeneratorState {
+    Visited(usize),
+    Backtrack(usize),
+}
+
+impl<'a> Iterator for MazeGenerator<'a> {
+    type Item = GeneratorState;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        todo!()
     }
 }
 
