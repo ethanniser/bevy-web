@@ -149,28 +149,6 @@ fn setup(
         }
     }
 
-    // spawn square
-    // commands
-    //     .spawn(SpriteBundle {
-    //         sprite: Sprite {
-    //             color: Color::ORANGE,
-    //             custom_size: Some(Vec2::new(50.0, 50.0)),
-    //             ..default()
-    //         },
-    //         transform: Transform::from_translation(GRID_START.extend(0.0)),
-    //         ..default()
-    //     })
-    //     .insert((
-    //         Clickable::Square {
-    //             location: GRID_START,
-    //             size: 50.,
-    //         },
-    //         ColorChangingCell {
-    //             state: CellColor::Orange,
-    //         },
-    //         ScoreGranter { grants: 5 },
-    //     ));
-
     // spawn circle
 
     let circle_location = Vec2::new(200., 200.);
