@@ -8,7 +8,7 @@ const WINDOW_HEIGHT: f32 = 650.0;
 
 const BACKGROUND_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 enum Clickable {
     Square {
         start_x: f32,
@@ -80,13 +80,15 @@ fn main() {
             WorldInspectorPlugin::default().run_if(input_toggle_active(false, KeyCode::AltLeft)),
         )
         .insert_resource(ClearColor(BACKGROUND_COLOR))
+        .init_resource::<Points>()
         .add_systems(Startup, setup)
         .add_systems(
             Update,
             (
                 bevy::window::close_on_esc,
                 handle_clicks,
-                // update_score.after(handle_clicks),
+                update_score,
+                update_score.after(handle_clicks),
             ),
         )
         .run();
@@ -158,24 +160,24 @@ fn handle_clicks(
     mouse_button_input: Res<Input<MouseButton>>,
 ) {
     if let Some(cursor_position) = q_window.single().cursor_position() {
+        // flip vertical axis, so that y is up
+        let cursor_position = Vec2::new(cursor_position.x, WINDOW_HEIGHT - cursor_position.y);
         if mouse_button_input.just_pressed(MouseButton::Left) {
-            dbg!(cursor_position);
-            // for (clickable, mut cell, mut sprite, score_granter) in q_cells.iter_mut() {
-            //     if clickable.is_inside_bounds(cursor_position) {
-            //         match cell.state {
-            //             CellColor::Orange => {
-            //                 cell.state = CellColor::Blue;
-            //                 sprite.color = Color::BLUE;
-            //                 points.0 += score_granter.grants;
-            //             }
-            //             CellColor::Blue => {
-            //                 cell.state = CellColor::Orange;
-            //                 sprite.color = Color::ORANGE;
-            //                 points.0 += score_granter.grants;
-            //             }
-            //         }
-            //     }
-            // }
+            for (clickable, mut cell, mut sprite, score_granter) in q_cells.iter_mut() {
+                if clickable.is_inside_bounds(cursor_position) {
+                    match cell.state {
+                        CellColor::Orange => {
+                            cell.state = CellColor::Blue;
+                            sprite.color = Color::BLUE;
+                            points.0 += score_granter.grants;
+                        }
+                        CellColor::Blue => {
+                            cell.state = CellColor::Orange;
+                            sprite.color = Color::ORANGE;
+                        }
+                    }
+                }
+            }
         }
     }
 }
