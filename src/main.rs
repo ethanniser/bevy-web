@@ -1,5 +1,6 @@
 use bevy::input::common_conditions::input_toggle_active;
 use bevy::prelude::*;
+use bevy::sprite::MaterialMesh2dBundle;
 use bevy::window::PrimaryWindow;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
@@ -8,18 +9,13 @@ const WINDOW_HEIGHT: f32 = 650.0;
 
 const BACKGROUND_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 
+const GRID_START: Vec2 = Vec2::new(450., 400.);
+const GRID_CELL_SIZE: f32 = 50.;
+
 #[derive(Component, Debug)]
 enum Clickable {
-    Square {
-        start_x: f32,
-        start_y: f32,
-        width: f32,
-    },
-    Circle {
-        start_x: f32,
-        start_y: f32,
-        radius: f32,
-    },
+    Square { location: Vec2, size: f32 },
+    Circle { location: Vec2, radius: f32 },
 }
 
 #[derive(Component)]
@@ -37,25 +33,34 @@ enum CellColor {
     Blue,
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource)]
 struct Points(u32);
+
+#[derive(Resource, Default)]
+struct MouseCords(Vec2);
 
 impl Clickable {
     fn is_inside_bounds(&self, location: Vec2) -> bool {
         match self {
             Clickable::Square {
-                start_x,
-                start_y,
-                width,
+                location:
+                    Vec2 {
+                        x: start_x,
+                        y: start_y,
+                    },
+                size,
             } => {
                 location.x >= *start_x
-                    && location.x <= *start_x + *width
+                    && location.x <= *start_x + *size
                     && location.y >= *start_y
-                    && location.y <= *start_y + *width
+                    && location.y <= *start_y + *size
             }
             Clickable::Circle {
-                start_x,
-                start_y,
+                location:
+                    Vec2 {
+                        x: start_x,
+                        y: start_y,
+                    },
                 radius,
             } => {
                 let distance = (location.x - *start_x).powi(2) + (location.y - *start_y).powi(2);
@@ -80,21 +85,24 @@ fn main() {
             WorldInspectorPlugin::default().run_if(input_toggle_active(false, KeyCode::AltLeft)),
         )
         .insert_resource(ClearColor(BACKGROUND_COLOR))
-        .init_resource::<Points>()
+        .insert_resource(Points(50))
+        .init_resource::<MouseCords>()
         .add_systems(Startup, setup)
+        .add_systems(PreUpdate, update_mouse_cords)
         .add_systems(
             Update,
-            (
-                bevy::window::close_on_esc,
-                handle_clicks,
-                update_score,
-                update_score.after(handle_clicks),
-            ),
+            (bevy::window::close_on_esc, handle_clicks, handle_reset),
         )
+        .add_systems(PostUpdate, update_score)
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    // spawn camera
     commands
         .spawn(Camera2dBundle {
             transform: Transform::from_translation(Vec3::new(
@@ -106,28 +114,83 @@ fn setup(mut commands: Commands) {
         })
         .insert(Name::new("Main Camera"));
 
+    // spawn grid
+    for x in 0..4 {
+        for y in 0..4 {
+            let starting_cords =
+                GRID_START + Vec2::new(x as f32 * GRID_CELL_SIZE, y as f32 * GRID_CELL_SIZE);
+
+            let in_outer_ring = x == 0 || x == 3 || y == 0 || y == 3;
+
+            commands
+                .spawn(SpriteBundle {
+                    sprite: Sprite {
+                        color: if in_outer_ring {
+                            Color::BLUE
+                        } else {
+                            Color::ORANGE
+                        },
+                        custom_size: Some(Vec2::new(GRID_CELL_SIZE, GRID_CELL_SIZE)),
+                        ..default()
+                    },
+                    transform: Transform::from_translation(starting_cords.extend(0.0)),
+                    ..default()
+                })
+                .insert((
+                    Clickable::Square {
+                        location: starting_cords,
+                        size: GRID_CELL_SIZE,
+                    },
+                    ColorChangingCell {
+                        state: CellColor::Orange,
+                    },
+                    ScoreGranter { grants: 5 },
+                ));
+        }
+    }
+
+    // spawn square
+    // commands
+    //     .spawn(SpriteBundle {
+    //         sprite: Sprite {
+    //             color: Color::ORANGE,
+    //             custom_size: Some(Vec2::new(50.0, 50.0)),
+    //             ..default()
+    //         },
+    //         transform: Transform::from_translation(GRID_START.extend(0.0)),
+    //         ..default()
+    //     })
+    //     .insert((
+    //         Clickable::Square {
+    //             location: GRID_START,
+    //             size: 50.,
+    //         },
+    //         ColorChangingCell {
+    //             state: CellColor::Orange,
+    //         },
+    //         ScoreGranter { grants: 5 },
+    //     ));
+
+    // spawn circle
+
+    let circle_location = Vec2::new(200., 200.);
+
     commands
-        .spawn(SpriteBundle {
-            sprite: Sprite {
-                color: Color::ORANGE,
-                custom_size: Some(Vec2::new(100.0, 100.0)),
-                ..default()
-            },
-            transform: Transform::from_translation(Vec2::new(0., 0.).extend(0.0)),
+        .spawn(MaterialMesh2dBundle {
+            mesh: meshes.add(shape::Circle::new(50.).into()).into(),
+            material: materials.add(ColorMaterial::from(Color::GRAY)),
+            transform: Transform::from_translation(circle_location.extend(0.0)),
             ..default()
         })
         .insert((
-            Clickable::Square {
-                start_x: 0.,
-                start_y: 0.,
-                width: 100.,
+            Clickable::Circle {
+                location: circle_location,
+                radius: 50.,
             },
-            ColorChangingCell {
-                state: CellColor::Orange,
-            },
-            ScoreGranter { grants: 1 },
+            ScoreGranter { grants: 10 },
         ));
 
+    // spawn points text
     commands.spawn(Text2dBundle {
         text: Text {
             sections: vec![TextSection::new(
@@ -146,39 +209,60 @@ fn setup(mut commands: Commands) {
     });
 }
 
+fn update_mouse_cords(
+    mut mouse_cords: ResMut<MouseCords>,
+    q_window: Query<&Window, With<PrimaryWindow>>,
+) {
+    if let Some(cursor_position) = q_window.single().cursor_position() {
+        // flip vertical axis, so that y is up
+        let cursor_position = Vec2::new(cursor_position.x, WINDOW_HEIGHT - cursor_position.y);
+        mouse_cords.0 = cursor_position;
+    }
+}
+
 // checks for click, checks each clickable if it was clicked,
 // if so then updates the score and changes the color of the cell
 fn handle_clicks(
     mut q_cells: Query<(
         &Clickable,
-        &mut ColorChangingCell,
-        &mut Sprite,
+        Option<&mut ColorChangingCell>,
+        Option<&mut Sprite>,
         &ScoreGranter,
     )>,
     mut points: ResMut<Points>,
-    q_window: Query<&Window, With<PrimaryWindow>>,
+    cursor_position: Res<MouseCords>,
     mouse_button_input: Res<Input<MouseButton>>,
 ) {
-    if let Some(cursor_position) = q_window.single().cursor_position() {
-        // flip vertical axis, so that y is up
-        let cursor_position = Vec2::new(cursor_position.x, WINDOW_HEIGHT - cursor_position.y);
-        if mouse_button_input.just_pressed(MouseButton::Left) {
-            for (clickable, mut cell, mut sprite, score_granter) in q_cells.iter_mut() {
-                if clickable.is_inside_bounds(cursor_position) {
-                    match cell.state {
+    if mouse_button_input.just_pressed(MouseButton::Left) {
+        for (clickable, opt_cell, opt_sprite, score_granter) in q_cells.iter_mut() {
+            if clickable.is_inside_bounds(cursor_position.0) {
+                match opt_cell {
+                    // is color changing cell (square)
+                    Some(mut cell) => match cell.state {
                         CellColor::Orange => {
                             cell.state = CellColor::Blue;
-                            sprite.color = Color::BLUE;
+                            opt_sprite.expect("square always has sprite").color = Color::BLUE;
                             points.0 += score_granter.grants;
                         }
                         CellColor::Blue => {
                             cell.state = CellColor::Orange;
-                            sprite.color = Color::ORANGE;
+                            opt_sprite.expect("square always has sprite").color = Color::ORANGE;
                         }
+                    },
+                    // is not color changing cell (circle)
+                    None => {
+                        points.0 += score_granter.grants;
                     }
                 }
             }
         }
+    }
+}
+
+// checks if 'r' was pressed, if so then resets the score back to 50
+fn handle_reset(mut points: ResMut<Points>, keyboard_input: Res<Input<KeyCode>>) {
+    if keyboard_input.just_pressed(KeyCode::R) {
+        points.0 = 50;
     }
 }
 
