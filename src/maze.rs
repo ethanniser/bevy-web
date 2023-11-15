@@ -1,49 +1,33 @@
 use std::collections::HashSet;
 use std::iter::Iterator;
+
+// make bitfield
 #[derive(Debug, Clone)]
-struct Graph {
-    nodes: Vec<HashSet<usize>>,
+struct Neighbors {
+    up: bool,
+    down: bool,
+    left: bool,
+    right: bool,
 }
 
-impl Graph {
-    fn new_grid(width: usize, height: usize) -> Self {
-        let mut nodes = vec![HashSet::new(); width * height];
-
-        for row in 0..height {
-            for col in 0..width {
-                let index = row * width + col;
-
-                if col > 0 {
-                    nodes[index].insert(index - 1);
-                }
-                if col < width - 1 {
-                    nodes[index].insert(index + 1);
-                }
-                if row > 0 {
-                    nodes[index].insert(index - width);
-                }
-                if row < height - 1 {
-                    nodes[index].insert(index + width);
-                }
-            }
-        }
-
-        Self { nodes }
-    }
-
-    fn generate_maze(&self) -> impl Iterator<Item = GeneratorState> {
-        todo!()
-    }
+#[derive(Debug, Clone)]
+struct Maze {
+    // h*w long - indexed by x + y * w
+    nodes: Vec<Neighbors>,
+    width: usize,
+    height: usize,
+    start: usize,
+    end: usize,
 }
 
-impl std::convert::AsRef<Vec<HashSet<usize>>> for Graph {
-    fn as_ref(&self) -> &Vec<HashSet<usize>> {
-        &self.nodes
+impl Maze {
+    fn create_generator(&mut self) -> MazeGenerator {
+        MazeGenerator::new(self)
     }
 }
 
 struct MazeGenerator<'a> {
-    graph: &'a Graph,
+    maze: &'a mut Maze,
     visited: HashSet<usize>,
     stack: Vec<usize>,
 }
@@ -51,6 +35,17 @@ struct MazeGenerator<'a> {
 enum GeneratorState {
     Visited(usize),
     Backtrack(usize),
+}
+
+impl<'a> MazeGenerator<'a> {
+    fn new(maze: &'a mut Maze) -> Self {
+
+        Self {
+            maze,
+            visited: HashSet::new(),
+            stack: Vec::new(),
+        }
+    }
 }
 
 impl<'a> Iterator for MazeGenerator<'a> {
@@ -67,18 +62,5 @@ mod test {
     use super::*;
 
     #[test]
-    fn basic_grid() {
-        let mut test = vec![
-            HashSet::from_iter(vec![1, 3]),
-            HashSet::from_iter(vec![0, 2, 4]),
-            HashSet::from_iter(vec![1, 5]),
-            HashSet::from_iter(vec![0, 4]),
-            HashSet::from_iter(vec![1, 3, 5]),
-            HashSet::from_iter(vec![2, 4]),
-        ];
-
-        let grid = Graph::new_grid(3, 2);
-
-        assert_eq!(grid.as_ref(), &test);
-    }
+    fn foo() {}
 }
