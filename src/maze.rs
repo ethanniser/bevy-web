@@ -107,10 +107,29 @@ impl<'a> Iterator for MazeGenerator<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         match &self.previous_state {
             // first time
-            None => todo!(),
+            None => {
+                let start = self.maze.start;
+                self.visited.insert(start.x + start.y * self.maze.width);
+                self.stack.push(start.x + start.y * self.maze.width);
+                self.previous_state = Some(GeneratorState::Exploring(start));
+                self.previous_state.clone()
+            },
             // all other times
             Some(prev_state) => match prev_state {
-                GeneratorState::Exploring(cords) => todo!(),
+                GeneratorState::Exploring(cords) => {
+                    let unvisited = self.maze.get_unvisited_neighbors(*cords);
+                    if unvisited.is_empty() {
+                        let returning_to = self.stack.pop().expect("stack is empty");
+                        self.previous_state = Some(GeneratorState::Backtracking(returning_to));
+                        self.previous_state.clone()
+                    } else {
+                        let next = unvisited.choose(&mut rand::thread_rng()).unwrap();
+                        self.visited.insert(next.x + next.y * self.maze.width);
+                        self.stack.push(next.x + next.y * self.maze.width);
+                        self.previous_state = Some(GeneratorState::Exploring(*next));
+                        self.previous_state.clone()
+                    }
+                },
                 GeneratorState::Considering { from, options } => todo!(),
                 GeneratorState::Backtracking(cords) => todo!(),
             },
