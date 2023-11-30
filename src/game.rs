@@ -97,28 +97,11 @@ impl Game {
             Direction::Left => self.move_left(),
             Direction::Right => self.move_right(),
         }
+        .add_random_tile()
     }
 
     fn move_up(&self) -> Game {
-        let mut new_board = self.clone();
-        for x in 0..4 {
-            let mut y = 0;
-            while y < 4 {
-                if new_board.board[y][x] == 0 {
-                    let mut y2 = y + 1;
-                    while y2 < 4 {
-                        if new_board.board[y2][x] != 0 {
-                            new_board.board[y][x] = new_board.board[y2][x];
-                            new_board.board[y2][x] = 0;
-                            break;
-                        }
-                        y2 += 1;
-                    }
-                }
-                y += 1;
-            }
-        }
-        new_board
+        todo!()
     }
 
     fn move_down(&self) -> Game {
@@ -126,11 +109,26 @@ impl Game {
     }
 
     fn move_left(&self) -> Game {
-        todo!()
+        let mut new_game = self.clone();
+
+        for row in new_game.board.iter_mut() {
+            row.reverse();
+            let mut new_row = slide_row_foward(*row);
+            new_row.reverse();
+            *row = new_row;
+        }
+
+        new_game
     }
 
     fn move_right(&self) -> Game {
-        todo!()
+        let mut new_game = self.clone();
+
+        for row in new_game.board.iter_mut() {
+            *row = slide_row_foward(*row);
+        }
+
+        new_game
     }
 
     pub fn is_game_over(&self) -> bool {
@@ -151,18 +149,22 @@ mod test {
         let game = Game::new();
         println!("{:?}", game);
 
-        let game = Game::from([
+        let _game = Game::from([
             [2, 4, 8, 16],
             [0, 2, 4, 8],
             [0, 0, 2, 4],
             [0, 0, 0, 2],
         ]);
 
-        println!("{:?}", game);
+        // println!("{:?}", game);
     }
 
     #[test]
     fn row_collapse() {
+        let before = [0, 2, 0, 0];
+        let after = [0, 0, 0, 2];
+        assert_eq!(slide_row_foward(before), after);
+
         let before = [0, 0, 2, 2];
         let after = [0, 0, 0, 4];
         assert_eq!(slide_row_foward(before), after);
@@ -180,7 +182,7 @@ mod test {
         assert_eq!(slide_row_foward(before), after);
 
         let before = [2, 2, 2, 0];
-        let after = [0, 0, 4, 2];
+        let after = [0, 0, 2, 4];
         assert_eq!(slide_row_foward(before), after);
 
         let before = [2, 2, 2, 2];
@@ -191,45 +193,144 @@ mod test {
         let after = [0, 0, 4, 8];
         assert_eq!(slide_row_foward(before), after);
     }
+
+    #[test]
+    fn move_right() {
+        let before = [
+            [32, 0, 0, 0],
+            [0, 2, 2, 4],
+            [2, 4, 8, 2],
+            [0, 2, 8, 2],
+        ];
+
+        let after = [
+            [0, 0, 0, 32],
+            [0, 0, 4, 4],
+            [2, 4, 8, 2],
+            [0, 2, 8, 2],
+        ];
+
+        let game = Game::from(before);
+
+        assert_eq!(game.move_right().board, after);
+    }
+
+    #[test]
+    fn move_left() {
+        let before = [
+            [32, 0, 0, 0],
+            [0, 2, 2, 4],
+            [2, 4, 8, 2],
+            [0, 2, 8, 2],
+        ];
+
+        let after = [
+            [32, 0, 0, 0],
+            [4, 4, 0, 0],
+            [2, 4, 8, 2],
+            [2, 8, 2, 0],
+        ];
+        let game = Game::from(before);
+
+        assert_eq!(game.move_left().board, after);
+    }
+
+    #[test]
+    fn move_up() {
+        let before = [
+            [32, 0, 0, 0],
+            [0, 2, 2, 4],
+            [2, 4, 8, 2],
+            [0, 2, 8, 2],
+        ];
+
+        let after = [
+            [32, 2, 2, 4],
+            [2, 2, 16, 4],
+            [0, 2, 0, 0],
+            [0, 0, 0, 0],
+        ];
+
+        let game = Game::from(before);
+
+        assert_eq!(game.move_up().board, after);
+    }
+
+    #[test]
+    fn move_down() {
+        let before = [
+            [32, 0, 0, 0],
+            [0, 2, 2, 4],
+            [2, 4, 8, 2],
+            [0, 2, 8, 2],
+        ];
+
+        let after = [
+            [0, 0, 0, 0],
+            [0, 2, 0, 0],
+            [32, 4, 2, 4],
+            [2, 2, 16, 4],
+        ];
+
+        let game = Game::from(before);
+
+        assert_eq!(game.move_down().board, after);
+    }
 }
 
 fn slide_row_foward(mut row: [u16; 4]) -> [u16; 4] {
     // first slide over
-    for i in 0..3 {
-        let cur = row[i];
-        let next = row[i + 1];
+    for i in (0..3).rev() {
+        let mut cur_idx = i;
+        let mut next_idx = i + 1;
 
-        if next == 0 {
+        if row[cur_idx] == 0 {
+            // current is empty so ignore
+            continue;
+        }
+
+        while next_idx < 4 && row[next_idx] == 0 {
             // next is empty so slide over
-            row[i] = 0;
-            row[i + 1] = cur;
+            row[next_idx] = row[cur_idx];
+            row[cur_idx] = 0;
+
+            next_idx += 1;
+            cur_idx += 1;
         }
     }
 
     // then collapse same cells
-    for i in 0..3 {
-        let cur = row[i];
-        let next = row[i + 1];
-
-        if cur != 0 {
-            if next == cur {
-                // they are the same so collapse
-                row[i] = 0;
-                row[i + 1] = cur + next;
-            }
-        }
+    if row[3] == row[2] {
+        row[3] *= 2;
+        row[2] = 0;
+    }
+    if row[2] == row[1] {
+        row[2] *= 2;
+        row[1] = 0;
+    }
+    if row[1] == row[0] {
+        row[1] *= 2;
+        row[0] = 0;
     }
 
     // then slide over again
 
-    for i in 0..3 {
-        let cur = row[i];
-        let next = row[i + 1];
+    for i in (0..3).rev() {
+        let mut cur_idx = i;
+        let mut next_idx = i + 1;
 
-        if next == 0 {
+        if row[cur_idx] == 0 {
+            // current is empty so ignore
+            continue;
+        }
+
+        while next_idx < 4 && row[next_idx] == 0 {
             // next is empty so slide over
-            row[i] = 0;
-            row[i + 1] = cur;
+            row[next_idx] = row[cur_idx];
+            row[cur_idx] = 0;
+
+            next_idx += 1;
+            cur_idx += 1;
         }
     }
 
