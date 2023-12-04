@@ -77,6 +77,40 @@ impl Game {
         highest
     }
 
+    pub fn make_move(&self, direction: Direction) -> Game {
+        match direction {
+            Direction::Up => self.move_up(),
+            Direction::Down => self.move_down(),
+            Direction::Left => self.move_left(),
+            Direction::Right => self.move_right(),
+        }
+        .add_random_tile()
+        .increment_moves()
+    }
+
+    pub fn is_game_over(&self) -> bool {
+        let new_game = self.clone();
+
+        if new_game.move_up() != new_game {
+            return false;
+        }
+        if new_game.move_down() != new_game {
+            return false;
+        }
+        if new_game.move_left() != new_game {
+            return false;
+        }
+        if new_game.move_right() != new_game {
+            return false;
+        }
+
+        true
+    }
+
+    pub fn reset(&mut self) {
+        *self = Game::new();
+    }
+
     fn add_random_tile(&self) -> Game {
         let mut new_board = self.clone();
         let mut empty_tiles = Vec::new();
@@ -98,17 +132,6 @@ impl Game {
         };
 
         new_board
-    }
-
-    pub fn make_move(&self, direction: Direction) -> Game {
-        match direction {
-            Direction::Up => self.move_up(),
-            Direction::Down => self.move_down(),
-            Direction::Left => self.move_left(),
-            Direction::Right => self.move_right(),
-        }
-        .add_random_tile()
-        .increment_moves()
     }
 
     fn increment_moves(&self) -> Game {
@@ -165,29 +188,6 @@ impl Game {
         }
 
         new_game
-    }
-
-    pub fn is_game_over(&self) -> bool {
-        let new_game = self.clone();
-
-        if new_game.move_up() != new_game {
-            return false;
-        }
-        if new_game.move_down() != new_game {
-            return false;
-        }
-        if new_game.move_left() != new_game {
-            return false;
-        }
-        if new_game.move_right() != new_game {
-            return false;
-        }
-
-        true
-    }
-
-    pub fn reset(&mut self) {
-        *self = Game::new();
     }
 }
 
