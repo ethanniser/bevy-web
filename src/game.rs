@@ -5,21 +5,19 @@ pub type Grid = [[u16; 4]; 4];
 #[derive(Clone)]
 pub struct Game {
     board: Grid,
-    score: u32,
+    moves: u16,
     rng: ThreadRng,
 }
 
 impl std::cmp::PartialEq for Game {
     fn eq(&self, other: &Self) -> bool {
-        self.board == other.board && self.score == other.score
+        self.board == other.board
     }
 }
 
 impl std::fmt::Debug for Game {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut output = String::new();
-
-        output.push_str(&format!("Score: {}\n", self.score));
 
         for row in self.board.iter() {
             for tile in row.iter() {
@@ -35,7 +33,7 @@ impl std::convert::From<Grid> for Game {
     fn from(value: Grid) -> Self {
         Game {
             board: value,
-            score: 0,
+            moves: 0,
             rng: thread_rng(),
         }
     }
@@ -53,18 +51,30 @@ impl Game {
     pub fn new() -> Self {
         let game = Game {
             board: [[0; 4]; 4],
-            score: 0,
+            moves: 0,
             rng: thread_rng(),
         };
         game.add_random_tile().add_random_tile()
     }
 
-    pub fn score(&self) -> u32 {
-        self.score
-    }
-
     pub fn board(&self) -> Grid {
         self.board
+    }
+
+    pub fn moves(&self) -> u16 {
+        self.moves
+    }
+
+    pub fn max_tile(&self) -> u16 {
+        let mut highest = 0;
+        for row in self.board.iter() {
+            for tile in row.iter() {
+                if *tile > highest {
+                    highest = *tile;
+                }
+            }
+        }
+        highest
     }
 
     fn add_random_tile(&self) -> Game {
@@ -90,7 +100,7 @@ impl Game {
         new_board
     }
 
-    pub fn move_tiles(&self, direction: Direction) -> Game {
+    pub fn make_move(&self, direction: Direction) -> Game {
         match direction {
             Direction::Up => self.move_up(),
             Direction::Down => self.move_down(),
@@ -98,6 +108,13 @@ impl Game {
             Direction::Right => self.move_right(),
         }
         .add_random_tile()
+        .increment_moves()
+    }
+
+    fn increment_moves(&self) -> Game {
+        let mut new_game = self.clone();
+        new_game.moves += 1;
+        new_game
     }
 
     fn move_up(&self) -> Game {
