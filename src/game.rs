@@ -5,7 +5,7 @@ pub type Grid = [[u16; 4]; 4];
 #[derive(Clone)]
 pub struct Game {
     board: Grid,
-    moves: u16,
+    moves: u128,
     rng: ThreadRng,
 }
 
@@ -61,7 +61,7 @@ impl Game {
         self.board
     }
 
-    pub fn moves(&self) -> u16 {
+    pub fn moves(&self) -> u128 {
         self.moves
     }
 

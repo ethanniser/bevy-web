@@ -1,30 +1,11 @@
 use crate::game::{Direction, Game, Grid};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Weights {
-    pub max_tile: f32,
-    pub adjacent_tiles: f32,
-    pub empty_cells: f32,
-    pub monotonicity: f32,
-}
-
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-pub struct WeightsKey {
     pub max_tile: u32,
     pub adjacent_tiles: u32,
     pub empty_cells: u32,
     pub monotonicity: u32,
-}
-
-impl WeightsKey {
-    pub fn from_weights(weights: Weights) -> WeightsKey {
-        WeightsKey {
-            max_tile: (weights.max_tile * 10.0) as u32,
-            adjacent_tiles: (weights.adjacent_tiles * 10.0) as u32,
-            empty_cells: (weights.empty_cells * 10.0) as u32,
-            monotonicity: (weights.monotonicity * 10.0) as u32,
-        }
-    }
 }
 
 pub struct AI {
@@ -115,12 +96,12 @@ impl AI {
         }
 
         // Calculate the final score using weights
-        let final_score = (adjacent_tiles_score as f32 * self.weights.adjacent_tiles)
-            + (max_tile_score as f32 * self.weights.max_tile)
-            + (empty_cells_score as f32 * self.weights.empty_cells)
-            + (monotonicity_score as f32 * self.weights.monotonicity);
+        let final_score = (adjacent_tiles_score * self.weights.adjacent_tiles)
+            + (max_tile_score * self.weights.max_tile)
+            + (empty_cells_score * self.weights.empty_cells)
+            + (monotonicity_score * self.weights.monotonicity);
 
         // Convert the final score to u32, rounding down
-        final_score as u32
+        final_score
     }
 }

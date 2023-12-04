@@ -11,56 +11,45 @@ use std::{collections::HashMap, env};
 use ai::{Weights, AI};
 use game::Game;
 
-use crate::ai::WeightsKey;
-
-fn generate_range(start: f32, end: f32, step: f32) -> Vec<f32> {
-    let mut range = Vec::new();
-    let mut current = start;
-    while current <= end {
-        range.push(current);
-        current += step;
-    }
-    range
-}
-
 fn find_optimal_weights() {
-    let weight_ranges: [(f32, f32); 4] = [
-        (5.0, 15.0),
-        (2.0, 10.0),
-        (1.0, 5.0),
-        (0.1, 1.0),
+    let weight_ranges: [(u32, u32); 4] = [
+        (0, 5), // max_tile
+        (0, 0), // adjacent_tiles
+        (0, 0), // empty_cells
+        (0, 0), // monotonicity
     ];
-    let step = 0.25;
-    let n_runs = 100; // Number of runs for each weight combination
+    let step = 1;
+    let n_runs = 10; // Number of runs for each weight combination
 
     let results = Mutex::new(HashMap::new());
 
     let total_iterations = weight_ranges
         .iter()
-        .map(|&(min, max)| ((max - min) / step).round() as usize + 1)
+        .map(|&(min, max)| ((max - min) / step) as usize + 1)
         .product::<usize>();
     let current_iteration = AtomicUsize::new(0);
 
     let run_start_time = Instant::now();
 
-    generate_range(weight_ranges[0].0, weight_ranges[0].1, step)
+    (weight_ranges[0].0 as u32..=weight_ranges[0].1 as u32)
+        .step_by(step as usize)
+        .collect::<Vec<_>>()
         .par_iter()
         .for_each(|&max_tile| {
-            generate_range(weight_ranges[1].0, weight_ranges[1].1, step)
-                .iter()
-                .for_each(|&adjacent_tiles| {
-                    generate_range(weight_ranges[2].0, weight_ranges[2].1, step)
-                        .iter()
-                        .for_each(|&empty_cells| {
-                            generate_range(weight_ranges[3].0, weight_ranges[3].1, step)
-                                .iter()
-                                .for_each(|&monotonicity|
+            for adjacent_tiles in
+                (weight_ranges[1].0 as u32..=weight_ranges[1].1 as u32).step_by(step as usize)
+            {
+                for empty_cells in
+                    (weight_ranges[2].0 as u32..=weight_ranges[2].1 as u32).step_by(step as usize)
+                {
+                    for monotonicity in (weight_ranges[3].0 as u32..=weight_ranges[3].1 as u32)
+                        .step_by(step as usize)
                     {
                         let weights = Weights {
-                            max_tile: max_tile as f32,
-                            adjacent_tiles: adjacent_tiles as f32,
-                            empty_cells: empty_cells as f32,
-                            monotonicity: monotonicity as f32,
+                            max_tile,
+                            adjacent_tiles ,
+                            empty_cells ,
+                            monotonicity ,
                         };
 
                         let mut total_max_tile = 0;
@@ -76,11 +65,10 @@ fn find_optimal_weights() {
                         let average_max_tile = total_max_tile as f32 / n_runs as f32;
                         let average_moves = total_moves as f32 / n_runs as f32;
 
-                        let weights_key = WeightsKey::from_weights(weights);
                         results
                             .lock()
                             .unwrap()
-                            .insert(weights_key, (average_max_tile, average_moves));
+                            .insert(weights, (average_max_tile, average_moves));
 
                         current_iteration.fetch_add(1, Ordering::SeqCst);
                         let progress = current_iteration.load(Ordering::SeqCst) as f32 / total_iterations as f32 * 100.0;
@@ -88,23 +76,17 @@ fn find_optimal_weights() {
                             "Progress: {} / {} ({}%), Tested weights: {:?}, Average Max Tile: {:.2}, Average Moves: {:.2}",
                             current_iteration.load(Ordering::SeqCst), total_iterations, progress, weights, average_max_tile, average_moves
                         );
-                    })
-                })
-            })
+                    }
+                }
+            }
         });
 
     let results = results.into_inner().unwrap();
     // Find the best performing weights based on your criteria (e.g., highest average max tile)
-    let (best_weights_key, best_performance) = results
+    let (best_weights, best_performance) = results
         .iter()
         .max_by_key(|&(_, (avg_max_tile, _))| *avg_max_tile as u128)
         .unwrap();
-    let best_weights = Weights {
-        max_tile: best_weights_key.max_tile as f32 / 10.0,
-        adjacent_tiles: best_weights_key.adjacent_tiles as f32 / 10.0,
-        empty_cells: best_weights_key.empty_cells as f32 / 10.0,
-        monotonicity: best_weights_key.monotonicity as f32 / 10.0,
-    };
 
     let total_duration_ms = run_start_time.elapsed().as_millis();
 
@@ -121,7 +103,7 @@ fn find_optimal_weights() {
 
 struct RunResult {
     max_tile: u16,
-    moves: u16,
+    moves: u128,
     duration_ms: u128,
 }
 
@@ -190,10 +172,10 @@ fn main() {
             }
             "bench" => {
                 bench(Weights {
-                    max_tile: 10.0,
-                    adjacent_tiles: 5.0,
-                    empty_cells: 2.0,
-                    monotonicity: 0.5,
+                    max_tile: 10,
+                    adjacent_tiles: 5,
+                    empty_cells: 2,
+                    monotonicity: 0,
                 });
             }
             _ => {
