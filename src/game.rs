@@ -101,11 +101,30 @@ impl Game {
     }
 
     fn move_up(&self) -> Game {
-        todo!()
+        let mut new_game = self.clone();
+        transpose(&mut new_game.board);
+
+        for row in new_game.board.iter_mut() {
+            row.reverse();
+            let mut new_row = slide_row_foward(*row);
+            new_row.reverse();
+            *row = new_row;
+        }
+
+        transpose(&mut new_game.board);
+        new_game
     }
 
     fn move_down(&self) -> Game {
-        todo!()
+        let mut new_game = self.clone();
+        transpose(&mut new_game.board);
+
+        for row in new_game.board.iter_mut() {
+            *row = slide_row_foward(*row);
+        }
+
+        transpose(&mut new_game.board);
+        new_game
     }
 
     fn move_left(&self) -> Game {
@@ -138,6 +157,75 @@ impl Game {
     pub fn reset(&mut self) {
         *self = Game::new();
     }
+}
+
+fn transpose(board: &mut Grid) {
+    for i in 0..4 {
+        for j in i + 1..4 {
+            let temp = board[i][j];
+            board[i][j] = board[j][i];
+            board[j][i] = temp;
+        }
+    }
+}
+
+fn slide_row_foward(mut row: [u16; 4]) -> [u16; 4] {
+    // first slide over
+    for i in (0..3).rev() {
+        let mut cur_idx = i;
+        let mut next_idx = i + 1;
+
+        if row[cur_idx] == 0 {
+            // current is empty so ignore
+            continue;
+        }
+
+        while next_idx < 4 && row[next_idx] == 0 {
+            // next is empty so slide over
+            row[next_idx] = row[cur_idx];
+            row[cur_idx] = 0;
+
+            next_idx += 1;
+            cur_idx += 1;
+        }
+    }
+
+    // then collapse same cells
+    if row[3] == row[2] {
+        row[3] *= 2;
+        row[2] = 0;
+    }
+    if row[2] == row[1] {
+        row[2] *= 2;
+        row[1] = 0;
+    }
+    if row[1] == row[0] {
+        row[1] *= 2;
+        row[0] = 0;
+    }
+
+    // then slide over again
+
+    for i in (0..3).rev() {
+        let mut cur_idx = i;
+        let mut next_idx = i + 1;
+
+        if row[cur_idx] == 0 {
+            // current is empty so ignore
+            continue;
+        }
+
+        while next_idx < 4 && row[next_idx] == 0 {
+            // next is empty so slide over
+            row[next_idx] = row[cur_idx];
+            row[cur_idx] = 0;
+
+            next_idx += 1;
+            cur_idx += 1;
+        }
+    }
+
+    row
 }
 
 #[cfg(test)]
@@ -246,7 +334,7 @@ mod test {
 
         let after = [
             [32, 2, 2, 4],
-            [2, 2, 16, 4],
+            [2, 4, 16, 4],
             [0, 2, 0, 0],
             [0, 0, 0, 0],
         ];
@@ -276,63 +364,25 @@ mod test {
 
         assert_eq!(game.move_down().board, after);
     }
-}
 
-fn slide_row_foward(mut row: [u16; 4]) -> [u16; 4] {
-    // first slide over
-    for i in (0..3).rev() {
-        let mut cur_idx = i;
-        let mut next_idx = i + 1;
+    #[test]
+    fn transpose_test() {
+        let mut before = [
+            [32, 0, 0, 0],
+            [0, 2, 2, 4],
+            [2, 4, 8, 2],
+            [0, 2, 8, 2],
+        ];
 
-        if row[cur_idx] == 0 {
-            // current is empty so ignore
-            continue;
-        }
+        transpose(&mut before);
 
-        while next_idx < 4 && row[next_idx] == 0 {
-            // next is empty so slide over
-            row[next_idx] = row[cur_idx];
-            row[cur_idx] = 0;
+        let after = [
+            [32, 0, 2, 0],
+            [0, 2, 4, 2],
+            [0, 2, 8, 8],
+            [0, 4, 2, 2],
+        ];
 
-            next_idx += 1;
-            cur_idx += 1;
-        }
+        assert_eq!(before, after);
     }
-
-    // then collapse same cells
-    if row[3] == row[2] {
-        row[3] *= 2;
-        row[2] = 0;
-    }
-    if row[2] == row[1] {
-        row[2] *= 2;
-        row[1] = 0;
-    }
-    if row[1] == row[0] {
-        row[1] *= 2;
-        row[0] = 0;
-    }
-
-    // then slide over again
-
-    for i in (0..3).rev() {
-        let mut cur_idx = i;
-        let mut next_idx = i + 1;
-
-        if row[cur_idx] == 0 {
-            // current is empty so ignore
-            continue;
-        }
-
-        while next_idx < 4 && row[next_idx] == 0 {
-            // next is empty so slide over
-            row[next_idx] = row[cur_idx];
-            row[cur_idx] = 0;
-
-            next_idx += 1;
-            cur_idx += 1;
-        }
-    }
-
-    row
 }
