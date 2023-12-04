@@ -5,7 +5,6 @@ pub struct Weights {
     pub max_tile: u32,
     pub adjacent_tiles: u32,
     pub empty_cells: u32,
-    pub monotonicity: u32,
 }
 
 pub struct AI {
@@ -60,7 +59,6 @@ impl AI {
         let mut max_tile_score = 0;
         let mut adjacent_tiles_score = 0;
         let mut empty_cells_score = 0;
-        let mut monotonicity_score = 0;
 
         // Iterate over each cell in the grid
         for i in 0..4 {
@@ -83,23 +81,13 @@ impl AI {
                     adjacent_tiles_score += tile_value as u32;
                 }
 
-                // Monotonicity: check for smooth increases or decreases in tile values
-                if i > 0 {
-                    let vertical_difference = tile_value as i32 - board[i - 1][j] as i32;
-                    monotonicity_score += vertical_difference.abs() as u32;
-                }
-                if j > 0 {
-                    let horizontal_difference = tile_value as i32 - board[i][j - 1] as i32;
-                    monotonicity_score += horizontal_difference.abs() as u32;
-                }
             }
         }
 
         // Calculate the final score using weights
         let final_score = (adjacent_tiles_score * self.weights.adjacent_tiles)
             + (max_tile_score * self.weights.max_tile)
-            + (empty_cells_score * self.weights.empty_cells)
-            + (monotonicity_score * self.weights.monotonicity);
+            + (empty_cells_score * self.weights.empty_cells);
 
         // Convert the final score to u32, rounding down
         final_score
