@@ -151,7 +151,22 @@ impl Game {
     }
 
     pub fn is_game_over(&self) -> bool {
-        todo!()
+        let new_game = self.clone();
+
+        if new_game.move_up() != new_game {
+            return false;
+        }
+        if new_game.move_down() != new_game {
+            return false;
+        }
+        if new_game.move_left() != new_game {
+            return false;
+        }
+        if new_game.move_right() != new_game {
+            return false;
+        }
+
+        true
     }
 
     pub fn reset(&mut self) {
@@ -363,6 +378,41 @@ mod test {
         let game = Game::from(before);
 
         assert_eq!(game.move_down().board, after);
+    }
+
+    #[test]
+    fn no_move() {
+        let before = [
+            [2, 2, 2, 0],
+            [4, 8, 4, 0],
+            [0, 0, 0, 0],
+            [0, 0, 0, 0],
+        ];
+
+        let game = Game::from(before);
+
+        assert_eq!(game.move_up().board, before);
+    }
+
+    #[test]
+    fn game_over() {
+        let yes = [
+            [4, 8, 4, 2],
+            [2, 16, 128, 16],
+            [8, 64, 4, 2],
+            [2, 32, 2, 4],
+        ];
+
+        assert_eq!(Game::from(yes).is_game_over(), true);
+
+        let no = [
+            [32, 0, 0, 0],
+            [0, 2, 2, 4],
+            [2, 4, 8, 2],
+            [0, 2, 8, 2],
+        ];
+
+        assert_eq!(Game::from(no).is_game_over(), false);
     }
 
     #[test]
