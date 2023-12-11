@@ -21,6 +21,11 @@ impl std::fmt::Debug for Game {
 
         for row in self.board.iter() {
             for tile in row.iter() {
+                let tile = if *tile < 0 {
+                    "T".to_string()
+                } else {
+                    tile.to_string()
+                };
                 output.push_str(&format!("{:4}", tile));
             }
             output.push('\n');
