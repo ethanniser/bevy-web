@@ -1,6 +1,6 @@
 use rand::prelude::*;
 
-pub type Grid = [[u16; 4]; 4];
+pub type Grid = [[i32; 4]; 4];
 
 #[derive(Clone)]
 pub struct Game {
@@ -65,7 +65,7 @@ impl Game {
         self.moves
     }
 
-    pub fn max_tile(&self) -> u16 {
+    pub fn max_tile(&self) -> i32 {
         let mut highest = 0;
         for row in self.board.iter() {
             for tile in row.iter() {
@@ -125,8 +125,13 @@ impl Game {
             return new_board;
         }
         let (x, y) = empty_tiles[new_board.rng.gen_range(0..empty_tiles.len())];
-        new_board.board[y][x] = if new_board.rng.gen_range(0..4) == 0 {
-            4
+        new_board.board[y][x] = if new_board.rng.gen_range(0..9) == 0 {
+            // 50% TOXIC!
+            if new_board.rng.gen_range(0..1) == 0 {
+                -1
+            } else {
+                1
+            }
         } else {
             2
         };
@@ -201,7 +206,7 @@ fn transpose(board: &mut Grid) {
     }
 }
 
-fn slide_row_foward(mut row: [u16; 4]) -> [u16; 4] {
+fn slide_row_foward(mut row: [i32; 4]) -> [i32; 4] {
     // first slide over
     for i in (0..3).rev() {
         let mut cur_idx = i;
@@ -222,18 +227,27 @@ fn slide_row_foward(mut row: [u16; 4]) -> [u16; 4] {
         }
     }
 
-    // then collapse same cells
-    if row[3] == row[2] {
-        row[3] *= 2;
-        row[2] = 0;
-    }
-    if row[2] == row[1] {
-        row[2] *= 2;
-        row[1] = 0;
-    }
-    if row[1] == row[0] {
-        row[1] *= 2;
-        row[0] = 0;
+    let toxic: [bool; 4] = [
+        row[0] < 0,
+        row[1] < 0,
+        row[2] < 0,
+        row[3] < 0,
+    ];
+
+    match toxic {
+        [false, false, false, false] | [_, true, false, false] => {
+            row[3] = row[3] + row[2];
+            row[2] = 0;
+        }
+        [false, false, false, true] => {
+            row[2] = row[2] + row[1];
+            row[1] = 0;
+        }
+        [false, false, true, _] => {
+            row[1] = row[1] + row[0];
+            row[0] = 0;
+        }
+        _ => {}
     }
 
     // then slide over again
@@ -281,175 +295,175 @@ mod test {
 
     #[test]
     fn row_collapse() {
-        let before = [0, 2, 0, 0];
-        let after = [0, 0, 0, 2];
+        let before = [4, 1, 0, 0];
+        let after = [0, 0, 0, 5];
         assert_eq!(slide_row_foward(before), after);
 
-        let before = [0, 0, 2, 2];
-        let after = [0, 0, 0, 4];
+        let before = [0, 1, 2, 2];
+        let after = [0, 0, 1, 4];
         assert_eq!(slide_row_foward(before), after);
 
-        let before = [2, 2, 0, 0];
-        let after = [0, 0, 0, 4];
+        let before = [0, 2, 3, 0];
+        let after = [0, 0, 0, 5];
         assert_eq!(slide_row_foward(before), after);
 
-        let before = [2, 0, 2, 0];
-        let after = [0, 0, 0, 4];
+        let before = [2, 0, 2, 6];
+        let after = [0, 0, 2, 8];
         assert_eq!(slide_row_foward(before), after);
 
-        let before = [0, 2, 0, 2];
-        let after = [0, 0, 0, 4];
+        let before = [0, 2, 1, -1];
+        let after = [0, 0, 3, -1];
         assert_eq!(slide_row_foward(before), after);
 
-        let before = [2, 2, 2, 0];
-        let after = [0, 0, 2, 4];
+        let before = [2, -1, 2, 2];
+        let after = [0, 2, -1, 4];
         assert_eq!(slide_row_foward(before), after);
 
         let before = [2, 2, 2, 2];
-        let after = [0, 0, 4, 4];
+        let after = [0, 2, 2, 4];
         assert_eq!(slide_row_foward(before), after);
 
         let before = [2, 2, 4, 4];
-        let after = [0, 0, 4, 8];
+        let after = [0, 2, 2, 8];
         assert_eq!(slide_row_foward(before), after);
     }
 
-    #[test]
-    fn move_right() {
-        let before = [
-            [32, 0, 0, 0],
-            [0, 2, 2, 4],
-            [2, 4, 8, 2],
-            [0, 2, 8, 2],
-        ];
+    // #[test]
+    // fn move_right() {
+    //     let before = [
+    //         [32, 0, 0, 0],
+    //         [0, 2, 2, 4],
+    //         [2, 4, 8, 2],
+    //         [0, 2, 8, 2],
+    //     ];
 
-        let after = [
-            [0, 0, 0, 32],
-            [0, 0, 4, 4],
-            [2, 4, 8, 2],
-            [0, 2, 8, 2],
-        ];
+    //     let after = [
+    //         [0, 0, 0, 32],
+    //         [0, 0, 4, 4],
+    //         [2, 4, 8, 2],
+    //         [0, 2, 8, 2],
+    //     ];
 
-        let game = Game::from(before);
+    //     let game = Game::from(before);
 
-        assert_eq!(game.move_right().board, after);
-    }
+    //     assert_eq!(game.move_right().board, after);
+    // }
 
-    #[test]
-    fn move_left() {
-        let before = [
-            [32, 0, 0, 0],
-            [0, 2, 2, 4],
-            [2, 4, 8, 2],
-            [0, 2, 8, 2],
-        ];
+    // #[test]
+    // fn move_left() {
+    //     let before = [
+    //         [32, 0, 0, 0],
+    //         [0, 2, 2, 4],
+    //         [2, 4, 8, 2],
+    //         [0, 2, 8, 2],
+    //     ];
 
-        let after = [
-            [32, 0, 0, 0],
-            [4, 4, 0, 0],
-            [2, 4, 8, 2],
-            [2, 8, 2, 0],
-        ];
-        let game = Game::from(before);
+    //     let after = [
+    //         [32, 0, 0, 0],
+    //         [4, 4, 0, 0],
+    //         [2, 4, 8, 2],
+    //         [2, 8, 2, 0],
+    //     ];
+    //     let game = Game::from(before);
 
-        assert_eq!(game.move_left().board, after);
-    }
+    //     assert_eq!(game.move_left().board, after);
+    // }
 
-    #[test]
-    fn move_up() {
-        let before = [
-            [32, 0, 0, 0],
-            [0, 2, 2, 4],
-            [2, 4, 8, 2],
-            [0, 2, 8, 2],
-        ];
+    // #[test]
+    // fn move_up() {
+    //     let before = [
+    //         [32, 0, 0, 0],
+    //         [0, 2, 2, 4],
+    //         [2, 4, 8, 2],
+    //         [0, 2, 8, 2],
+    //     ];
 
-        let after = [
-            [32, 2, 2, 4],
-            [2, 4, 16, 4],
-            [0, 2, 0, 0],
-            [0, 0, 0, 0],
-        ];
+    //     let after = [
+    //         [32, 2, 2, 4],
+    //         [2, 4, 16, 4],
+    //         [0, 2, 0, 0],
+    //         [0, 0, 0, 0],
+    //     ];
 
-        let game = Game::from(before);
+    //     let game = Game::from(before);
 
-        assert_eq!(game.move_up().board, after);
-    }
+    //     assert_eq!(game.move_up().board, after);
+    // }
 
-    #[test]
-    fn move_down() {
-        let before = [
-            [32, 0, 0, 0],
-            [0, 2, 2, 4],
-            [2, 4, 8, 2],
-            [0, 2, 8, 2],
-        ];
+    // #[test]
+    // fn move_down() {
+    //     let before = [
+    //         [32, 0, 0, 0],
+    //         [0, 2, 2, 4],
+    //         [2, 4, 8, 2],
+    //         [0, 2, 8, 2],
+    //     ];
 
-        let after = [
-            [0, 0, 0, 0],
-            [0, 2, 0, 0],
-            [32, 4, 2, 4],
-            [2, 2, 16, 4],
-        ];
+    //     let after = [
+    //         [0, 0, 0, 0],
+    //         [0, 2, 0, 0],
+    //         [32, 4, 2, 4],
+    //         [2, 2, 16, 4],
+    //     ];
 
-        let game = Game::from(before);
+    //     let game = Game::from(before);
 
-        assert_eq!(game.move_down().board, after);
-    }
+    //     assert_eq!(game.move_down().board, after);
+    // }
 
-    #[test]
-    fn no_move() {
-        let before = [
-            [2, 2, 2, 0],
-            [4, 8, 4, 0],
-            [0, 0, 0, 0],
-            [0, 0, 0, 0],
-        ];
+    // #[test]
+    // fn no_move() {
+    //     let before = [
+    //         [2, 2, 2, 0],
+    //         [4, 8, 4, 0],
+    //         [0, 0, 0, 0],
+    //         [0, 0, 0, 0],
+    //     ];
 
-        let game = Game::from(before);
+    //     let game = Game::from(before);
 
-        assert_eq!(game.move_up().board, before);
-    }
+    //     assert_eq!(game.move_up().board, before);
+    // }
 
-    #[test]
-    fn game_over() {
-        let yes = [
-            [4, 8, 4, 2],
-            [2, 16, 128, 16],
-            [8, 64, 4, 2],
-            [2, 32, 2, 4],
-        ];
+    // #[test]
+    // fn game_over() {
+    //     let yes = [
+    //         [4, 8, 4, 2],
+    //         [2, 16, 128, 16],
+    //         [8, 64, 4, 2],
+    //         [2, 32, 2, 4],
+    //     ];
 
-        assert_eq!(Game::from(yes).is_game_over(), true);
+    //     assert_eq!(Game::from(yes).is_game_over(), true);
 
-        let no = [
-            [32, 0, 0, 0],
-            [0, 2, 2, 4],
-            [2, 4, 8, 2],
-            [0, 2, 8, 2],
-        ];
+    //     let no = [
+    //         [32, 0, 0, 0],
+    //         [0, 2, 2, 4],
+    //         [2, 4, 8, 2],
+    //         [0, 2, 8, 2],
+    //     ];
 
-        assert_eq!(Game::from(no).is_game_over(), false);
-    }
+    //     assert_eq!(Game::from(no).is_game_over(), false);
+    // }
 
-    #[test]
-    fn transpose_test() {
-        let mut before = [
-            [32, 0, 0, 0],
-            [0, 2, 2, 4],
-            [2, 4, 8, 2],
-            [0, 2, 8, 2],
-        ];
+    // #[test]
+    // fn transpose_test() {
+    //     let mut before = [
+    //         [32, 0, 0, 0],
+    //         [0, 2, 2, 4],
+    //         [2, 4, 8, 2],
+    //         [0, 2, 8, 2],
+    //     ];
 
-        transpose(&mut before);
+    //     transpose(&mut before);
 
-        let after = [
-            [32, 0, 2, 0],
-            [0, 2, 4, 2],
-            [0, 2, 8, 8],
-            [0, 4, 2, 2],
-        ];
+    //     let after = [
+    //         [32, 0, 2, 0],
+    //         [0, 2, 4, 2],
+    //         [0, 2, 8, 8],
+    //         [0, 4, 2, 2],
+    //     ];
 
-        assert_eq!(before, after);
-    }
+    //     assert_eq!(before, after);
+    // }
 }

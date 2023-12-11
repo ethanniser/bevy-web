@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 rand = "0.8"
-rayon = "1.8"
 
 # Enable a small amount of optimization in debug mode
 # [profile.dev]
