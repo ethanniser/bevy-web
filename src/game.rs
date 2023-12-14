@@ -1,11 +1,30 @@
 use rand::prelude::*;
 
-pub type Grid = [[i32; 4]; 4];
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum CellState {
+    Empty,
+    PlayerOne,
+    PlayerTwo,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Turn {
+    PlayerOne,
+    PlayerTwo,
+}
+
+pub enum GameResult {
+    PlayerOneWin,
+    PlayerTwoWin,
+    Draw,
+}
+
+pub type Grid = [[CellState; 7]; 6];
 
 #[derive(Clone)]
 pub struct Game {
     board: Grid,
-    moves: u128,
+    turn: Turn,
     rng: ThreadRng,
 }
 
@@ -21,454 +40,174 @@ impl std::fmt::Debug for Game {
 
         for row in self.board.iter() {
             for tile in row.iter() {
-                let tile = if *tile < 0 {
-                    "T".to_string()
-                } else {
-                    tile.to_string()
+                let cell_str = match tile {
+                    CellState::Empty => "_ ",
+                    CellState::PlayerOne => "1 ",
+                    CellState::PlayerTwo => "2 ",
                 };
-                output.push_str(&format!("{:4}", tile));
+                output.push_str(cell_str);
             }
             output.push('\n');
         }
-        write!(f, "{}", output)
+        write!(f, "{output}")
     }
 }
 
-impl std::convert::From<Grid> for Game {
-    fn from(value: Grid) -> Self {
+impl std::convert::From<(Grid, Turn)> for Game {
+    fn from((grid, turn): (Grid, Turn)) -> Self {
         Game {
-            board: value,
-            moves: 0,
+            board: grid,
+            turn,
             rng: thread_rng(),
         }
     }
-}
-
-#[derive(Copy, Clone, Debug)]
-pub enum Direction {
-    Up,
-    Down,
-    Left,
-    Right,
 }
 
 impl Game {
     pub fn new() -> Self {
-        let game = Game {
-            board: [[0; 4]; 4],
-            moves: 0,
+        Game {
+            board: [[CellState::Empty; 7]; 6],
+            turn: Turn::PlayerOne,
             rng: thread_rng(),
-        };
-        game.add_random_tile().add_random_tile()
+        }
     }
 
     pub fn board(&self) -> Grid {
         self.board
     }
 
-    pub fn moves(&self) -> u128 {
-        self.moves
+    pub fn turn(&self) -> Turn {
+        self.turn
     }
 
-    pub fn max_tile(&self) -> i32 {
-        let mut highest = 0;
-        for row in self.board.iter() {
-            for tile in row.iter() {
-                if *tile > highest {
-                    highest = *tile;
-                }
+    pub fn make_move(&self, column: usize) -> Game {
+        let mut new_game = self.clone();
+
+        if new_game.is_col_full(column) {
+            return new_game;
+        }
+
+        for row in (0..6).rev() {
+            if new_game.board[row][column] == CellState::Empty {
+                new_game.board[row][column] = match new_game.turn {
+                    Turn::PlayerOne => CellState::PlayerOne,
+                    Turn::PlayerTwo => CellState::PlayerTwo,
+                };
+                break;
             }
         }
-        highest
+
+        new_game.turn = match new_game.turn {
+            Turn::PlayerOne => Turn::PlayerTwo,
+            Turn::PlayerTwo => Turn::PlayerOne,
+        };
+
+        new_game
     }
 
-    pub fn make_move(&self, direction: Direction) -> Game {
-        match direction {
-            Direction::Up => self.move_up(),
-            Direction::Down => self.move_down(),
-            Direction::Left => self.move_left(),
-            Direction::Right => self.move_right(),
+    pub fn is_col_full(&self, column: usize) -> bool {
+        for row in 0..6 {
+            if self.board[row][column] == CellState::Empty {
+                return false;
+            }
         }
-        .add_random_tile()
-        .increment_moves()
-    }
-
-    pub fn is_game_over(&self) -> bool {
-        let new_game = self.clone();
-
-        if new_game.move_up() != new_game {
-            return false;
-        }
-        if new_game.move_down() != new_game {
-            return false;
-        }
-        if new_game.move_left() != new_game {
-            return false;
-        }
-        if new_game.move_right() != new_game {
-            return false;
-        }
-
         true
     }
 
-    pub fn reset(&mut self) {
-        *self = Game::new();
+    pub fn check_for_winner(&self) -> Option<GameResult> {
+        // Check for a winner
+        if self.check_winner() {
+            return match self.turn {
+                Turn::PlayerOne => Some(GameResult::PlayerTwoWin),
+                Turn::PlayerTwo => Some(GameResult::PlayerOneWin),
+            };
+        }
+
+        // Check for a draw (full board with no winner)
+        if self.is_board_full() {
+            return Some(GameResult::Draw);
+        }
+
+        // Game is not over
+        None
     }
 
-    fn add_random_tile(&self) -> Game {
-        let mut new_board = self.clone();
-        let mut empty_tiles = Vec::new();
-        for (y, row) in new_board.board.iter().enumerate() {
-            for (x, tile) in row.iter().enumerate() {
-                if *tile == 0 {
-                    empty_tiles.push((x, y));
+    fn check_winner(&self) -> bool {
+        // Check for a winner in rows, columns, and diagonals
+        self.check_winner_in_rows()
+            || self.check_winner_in_columns()
+            || self.check_winner_in_diagonals()
+    }
+
+    fn check_winner_in_rows(&self) -> bool {
+        for row in 0..6 {
+            for col in 0..4 {
+                if self.board[row][col] != CellState::Empty
+                    && self.board[row][col] == self.board[row][col + 1]
+                    && self.board[row][col] == self.board[row][col + 2]
+                    && self.board[row][col] == self.board[row][col + 3]
+                {
+                    return true; // Winner found in a row
                 }
             }
         }
-        if empty_tiles.is_empty() {
-            return new_board;
-        }
-        let (x, y) = empty_tiles[new_board.rng.gen_range(0..empty_tiles.len())];
-        new_board.board[y][x] = if new_board.rng.gen_range(0..9) == 0 {
-            // 50% TOXIC!
-            if new_board.rng.gen_range(0..1) == 0 {
-                -1
-            } else {
-                1
+        false
+    }
+
+    fn check_winner_in_columns(&self) -> bool {
+        for col in 0..7 {
+            for row in 0..3 {
+                if self.board[row][col] != CellState::Empty
+                    && self.board[row][col] == self.board[row + 1][col]
+                    && self.board[row][col] == self.board[row + 2][col]
+                    && self.board[row][col] == self.board[row + 3][col]
+                {
+                    return true; // Winner found in a column
+                }
             }
-        } else {
-            2
-        };
-
-        new_board
+        }
+        false
     }
 
-    fn increment_moves(&self) -> Game {
-        let mut new_game = self.clone();
-        new_game.moves += 1;
-        new_game
+    fn check_winner_in_diagonals(&self) -> bool {
+        // Check diagonals from top-left to bottom-right
+        for row in 0..3 {
+            for col in 0..4 {
+                if self.board[row][col] != CellState::Empty
+                    && self.board[row][col] == self.board[row + 1][col + 1]
+                    && self.board[row][col] == self.board[row + 2][col + 2]
+                    && self.board[row][col] == self.board[row + 3][col + 3]
+                {
+                    return true; // Winner found in a diagonal
+                }
+            }
+        }
+
+        // Check diagonals from top-right to bottom-left
+        for row in 0..3 {
+            for col in (3..7).rev() {
+                if self.board[row][col] != CellState::Empty
+                    && self.board[row][col] == self.board[row + 1][col - 1]
+                    && self.board[row][col] == self.board[row + 2][col - 2]
+                    && self.board[row][col] == self.board[row + 3][col - 3]
+                {
+                    return true; // Winner found in a diagonal
+                }
+            }
+        }
+
+        false
     }
 
-    fn move_up(&self) -> Game {
-        let mut new_game = self.clone();
-        transpose(&mut new_game.board);
-
-        for row in new_game.board.iter_mut() {
-            row.reverse();
-            let mut new_row = slide_row_foward(*row);
-            new_row.reverse();
-            *row = new_row;
+    fn is_board_full(&self) -> bool {
+        // Check if the board is completely filled (no Empty cells)
+        for row in 0..6 {
+            for col in 0..7 {
+                if self.board[row][col] == CellState::Empty {
+                    return false; // Board is not full
+                }
+            }
         }
-
-        transpose(&mut new_game.board);
-        new_game
+        true
     }
-
-    fn move_down(&self) -> Game {
-        let mut new_game = self.clone();
-        transpose(&mut new_game.board);
-
-        for row in new_game.board.iter_mut() {
-            *row = slide_row_foward(*row);
-        }
-
-        transpose(&mut new_game.board);
-        new_game
-    }
-
-    fn move_left(&self) -> Game {
-        let mut new_game = self.clone();
-
-        for row in new_game.board.iter_mut() {
-            row.reverse();
-            let mut new_row = slide_row_foward(*row);
-            new_row.reverse();
-            *row = new_row;
-        }
-
-        new_game
-    }
-
-    fn move_right(&self) -> Game {
-        let mut new_game = self.clone();
-
-        for row in new_game.board.iter_mut() {
-            *row = slide_row_foward(*row);
-        }
-
-        new_game
-    }
-}
-
-fn transpose(board: &mut Grid) {
-    for i in 0..4 {
-        for j in i + 1..4 {
-            let temp = board[i][j];
-            board[i][j] = board[j][i];
-            board[j][i] = temp;
-        }
-    }
-}
-
-fn slide_row_foward(mut row: [i32; 4]) -> [i32; 4] {
-    // first slide over
-    for i in (0..3).rev() {
-        let mut cur_idx = i;
-        let mut next_idx = i + 1;
-
-        if row[cur_idx] == 0 {
-            // current is empty so ignore
-            continue;
-        }
-
-        while next_idx < 4 && row[next_idx] == 0 {
-            // next is empty so slide over
-            row[next_idx] = row[cur_idx];
-            row[cur_idx] = 0;
-
-            next_idx += 1;
-            cur_idx += 1;
-        }
-    }
-
-    let toxic: [bool; 4] = [
-        row[0] < 0,
-        row[1] < 0,
-        row[2] < 0,
-        row[3] < 0,
-    ];
-
-    match toxic {
-        [false, false, false, false] | [_, true, false, false] => {
-            row[3] = row[3] + row[2];
-            row[2] = 0;
-        }
-        [false, false, false, true] => {
-            row[2] = row[2] + row[1];
-            row[1] = 0;
-        }
-        [false, false, true, _] => {
-            row[1] = row[1] + row[0];
-            row[0] = 0;
-        }
-        _ => {}
-    }
-
-    // then slide over again
-
-    for i in (0..3).rev() {
-        let mut cur_idx = i;
-        let mut next_idx = i + 1;
-
-        if row[cur_idx] == 0 {
-            // current is empty so ignore
-            continue;
-        }
-
-        while next_idx < 4 && row[next_idx] == 0 {
-            // next is empty so slide over
-            row[next_idx] = row[cur_idx];
-            row[cur_idx] = 0;
-
-            next_idx += 1;
-            cur_idx += 1;
-        }
-    }
-
-    row
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn pretty_print() {
-        let game = Game::new();
-        println!("{:?}", game);
-
-        let _game = Game::from([
-            [2, 4, 8, 16],
-            [0, 2, 4, 8],
-            [0, 0, 2, 4],
-            [0, 0, 0, 2],
-        ]);
-
-        // println!("{:?}", game);
-    }
-
-    #[test]
-    fn row_collapse() {
-        let before = [4, 1, 0, 0];
-        let after = [0, 0, 0, 5];
-        assert_eq!(slide_row_foward(before), after);
-
-        let before = [0, 1, 2, 2];
-        let after = [0, 0, 1, 4];
-        assert_eq!(slide_row_foward(before), after);
-
-        let before = [0, 2, 3, 0];
-        let after = [0, 0, 0, 5];
-        assert_eq!(slide_row_foward(before), after);
-
-        let before = [2, 0, 2, 6];
-        let after = [0, 0, 2, 8];
-        assert_eq!(slide_row_foward(before), after);
-
-        let before = [0, 2, 1, -1];
-        let after = [0, 0, 3, -1];
-        assert_eq!(slide_row_foward(before), after);
-
-        let before = [2, -1, 2, 2];
-        let after = [0, 2, -1, 4];
-        assert_eq!(slide_row_foward(before), after);
-
-        let before = [2, 2, 2, 2];
-        let after = [0, 2, 2, 4];
-        assert_eq!(slide_row_foward(before), after);
-
-        let before = [2, 2, 4, 4];
-        let after = [0, 2, 2, 8];
-        assert_eq!(slide_row_foward(before), after);
-    }
-
-    // #[test]
-    // fn move_right() {
-    //     let before = [
-    //         [32, 0, 0, 0],
-    //         [0, 2, 2, 4],
-    //         [2, 4, 8, 2],
-    //         [0, 2, 8, 2],
-    //     ];
-
-    //     let after = [
-    //         [0, 0, 0, 32],
-    //         [0, 0, 4, 4],
-    //         [2, 4, 8, 2],
-    //         [0, 2, 8, 2],
-    //     ];
-
-    //     let game = Game::from(before);
-
-    //     assert_eq!(game.move_right().board, after);
-    // }
-
-    // #[test]
-    // fn move_left() {
-    //     let before = [
-    //         [32, 0, 0, 0],
-    //         [0, 2, 2, 4],
-    //         [2, 4, 8, 2],
-    //         [0, 2, 8, 2],
-    //     ];
-
-    //     let after = [
-    //         [32, 0, 0, 0],
-    //         [4, 4, 0, 0],
-    //         [2, 4, 8, 2],
-    //         [2, 8, 2, 0],
-    //     ];
-    //     let game = Game::from(before);
-
-    //     assert_eq!(game.move_left().board, after);
-    // }
-
-    // #[test]
-    // fn move_up() {
-    //     let before = [
-    //         [32, 0, 0, 0],
-    //         [0, 2, 2, 4],
-    //         [2, 4, 8, 2],
-    //         [0, 2, 8, 2],
-    //     ];
-
-    //     let after = [
-    //         [32, 2, 2, 4],
-    //         [2, 4, 16, 4],
-    //         [0, 2, 0, 0],
-    //         [0, 0, 0, 0],
-    //     ];
-
-    //     let game = Game::from(before);
-
-    //     assert_eq!(game.move_up().board, after);
-    // }
-
-    // #[test]
-    // fn move_down() {
-    //     let before = [
-    //         [32, 0, 0, 0],
-    //         [0, 2, 2, 4],
-    //         [2, 4, 8, 2],
-    //         [0, 2, 8, 2],
-    //     ];
-
-    //     let after = [
-    //         [0, 0, 0, 0],
-    //         [0, 2, 0, 0],
-    //         [32, 4, 2, 4],
-    //         [2, 2, 16, 4],
-    //     ];
-
-    //     let game = Game::from(before);
-
-    //     assert_eq!(game.move_down().board, after);
-    // }
-
-    // #[test]
-    // fn no_move() {
-    //     let before = [
-    //         [2, 2, 2, 0],
-    //         [4, 8, 4, 0],
-    //         [0, 0, 0, 0],
-    //         [0, 0, 0, 0],
-    //     ];
-
-    //     let game = Game::from(before);
-
-    //     assert_eq!(game.move_up().board, before);
-    // }
-
-    // #[test]
-    // fn game_over() {
-    //     let yes = [
-    //         [4, 8, 4, 2],
-    //         [2, 16, 128, 16],
-    //         [8, 64, 4, 2],
-    //         [2, 32, 2, 4],
-    //     ];
-
-    //     assert_eq!(Game::from(yes).is_game_over(), true);
-
-    //     let no = [
-    //         [32, 0, 0, 0],
-    //         [0, 2, 2, 4],
-    //         [2, 4, 8, 2],
-    //         [0, 2, 8, 2],
-    //     ];
-
-    //     assert_eq!(Game::from(no).is_game_over(), false);
-    // }
-
-    // #[test]
-    // fn transpose_test() {
-    //     let mut before = [
-    //         [32, 0, 0, 0],
-    //         [0, 2, 2, 4],
-    //         [2, 4, 8, 2],
-    //         [0, 2, 8, 2],
-    //     ];
-
-    //     transpose(&mut before);
-
-    //     let after = [
-    //         [32, 0, 2, 0],
-    //         [0, 2, 4, 2],
-    //         [0, 2, 8, 8],
-    //         [0, 4, 2, 2],
-    //     ];
-
-    //     assert_eq!(before, after);
-    // }
 }
