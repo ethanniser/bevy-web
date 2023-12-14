@@ -1,4 +1,5 @@
 #![allow(unused)]
+mod ai;
 mod game;
 
 use game::Game;
@@ -11,7 +12,7 @@ fn main() {
         clearscreen::clear().unwrap();
         print!("\n\n\n{game:?}\n\n\n");
 
-        let result = game.check_for_winner();
+        let result = game.check_for_result();
 
         if let Some(result) = result {
             match result {

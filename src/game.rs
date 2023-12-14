@@ -114,7 +114,7 @@ impl Game {
         true
     }
 
-    pub fn check_for_winner(&self) -> Option<GameResult> {
+    pub fn check_for_result(&self) -> Option<GameResult> {
         // Check for a winner
         if self.check_winner() {
             return match self.turn {
@@ -130,6 +130,10 @@ impl Game {
 
         // Game is not over
         None
+    }
+
+    pub fn is_game_over(&self) -> bool {
+        self.check_for_result().is_some()
     }
 
     fn check_winner(&self) -> bool {
