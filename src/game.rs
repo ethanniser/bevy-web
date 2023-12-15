@@ -80,6 +80,13 @@ impl Game {
         self.turn
     }
 
+    pub fn next_turn(&self) -> Turn {
+        match self.turn {
+            Turn::PlayerOne => Turn::PlayerTwo,
+            Turn::PlayerTwo => Turn::PlayerOne,
+        }
+    }
+
     pub fn make_move(&self, column: usize) -> Game {
         let mut new_game = self.clone();
 
@@ -103,6 +110,20 @@ impl Game {
         };
 
         new_game
+    }
+
+    pub fn get_available_moves(&self) -> Vec<usize> {
+        let mut available_moves = Vec::new();
+
+        // Assuming a 7x6 grid (7 columns and 6 rows)
+        for col in 0..7 {
+            // Check if the top cell of the column is empty
+            if self.board[5][col] == CellState::Empty {
+                available_moves.push(col);
+            }
+        }
+
+        available_moves
     }
 
     pub fn is_col_full(&self, column: usize) -> bool {
